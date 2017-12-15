@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <string.h>
+#include <iconv.h>
 #include "shapefile.hpp"
 #include "mvt.hpp"
 #include "serial.hpp"
@@ -64,6 +66,24 @@ std::string forceutf8(std::string const &s) {
 	}
 
 	return out;
+}
+
+int code_convert(const char *from_charset,char *to_charset,char *inbuf,size_t inlen,char *outbuf,size_t outlen){
+	iconv_t cd;
+	int rc;
+	char **pin = &inbuf;
+	char **pout = &outbuf;
+	
+	cd = iconv_open(to_charset,from_charset);
+	if (cd==0) return -1;
+	memset(outbuf,0,outlen);
+	if (iconv(cd,pin,&inlen,pout,&outlen)==-1) return -1;
+	iconv_close(cd);
+	return 0;
+}
+
+int forcetoutf8(const char *from_charset,char *inbuf,int inlen,char *outbuf,int outlen){
+	return code_convert(from_charset,"utf-8",inbuf,inlen,outbuf,outlen);
 }
 
 drawvec decode_geometry(unsigned char *data, size_t len, int *type) {
@@ -256,7 +276,10 @@ void parse_shapefile(std::vector<struct serialization_state> &sst, std::string f
 	std::vector<std::string> columns;
 	std::vector<int> column_widths;
 	std::vector<int> column_types;
-
+	char outbuf[outlen] ;
+	char inbuf1[dbcol_len] ;
+	// sst[0] because this is only using one CPU
+	const char *from_charset = sst[0].fencoding;
 	// -1 because there is a 1-byte terminator
 	for (size_t i = 0; i < dbcol_len - 1; i += 32) {
 		size_t j;
@@ -265,13 +288,17 @@ void parse_shapefile(std::vector<struct serialization_state> &sst, std::string f
 				break;
 			}
 		}
-
-		columns.push_back(forceutf8(std::string((char *) dbcolumns + i, j - i)));
+		strcpy(inbuf1,std::string((char *) dbcolumns + i, j - i).c_str());
+		size_t inlen = strlen(inbuf1);
+		forcetoutf8(from_charset,inbuf1,inlen,outbuf,outlen);
+		columns.push_back(outbuf);
+		//columns.push_back(forceutf8(std::string((char *) dbcolumns + i, j - i)));
 		column_widths.push_back(dbcolumns[i + 16]);
 		column_types.push_back(dbcolumns[i + 11]);
 	}
 
 	unsigned char db[dbreclen];
+	char inbuf2[dbreclen];
 	unsigned seq = 0;
 	while (fread(db, dbreclen, 1, dbf) == 1) {
 		unsigned char shlen[8];
@@ -305,9 +332,13 @@ void parse_shapefile(std::vector<struct serialization_state> &sst, std::string f
 
 			size_t dbp = 1;
 			for (size_t i = 0; i < columns.size(); i++) {
-				std::string s = forceutf8(std::string((char *) (db + dbp), column_widths[i]));
+				std::string ori = std::string((char *) (db + dbp),column_widths[i]);
+				//std::string orif = forceutf8(std::string((char *) (db + dbp), column_widths[i]));
+				strcpy(inbuf2,ori.c_str());
+				size_t inlen = strlen(inbuf2);
+				forcetoutf8(from_charset,inbuf2,inlen,outbuf,outlen);
+				std::string s = outbuf;
 				dbp += column_widths[i];
-
 				while (s.size() > 0 && s[s.size() - 1] == ' ') {
 					s.pop_back();
 				}

@@ -98,6 +98,7 @@ struct reader {
 
 struct serialization_state {
 	const char *fname = NULL;  // source file name
+	const char *fencoding = NULL;// source file encoding
 	int line = 0;		   // user-oriented location within source for error reports
 
 	volatile long long *layer_seq = NULL;     // sequence within current layer
