@@ -288,11 +288,15 @@ void parse_shapefile(std::vector<struct serialization_state> &sst, std::string f
 				break;
 			}
 		}
-		strcpy(inbuf1,std::string((char *) dbcolumns + i, j - i).c_str());
-		size_t inlen = strlen(inbuf1);
-		forcetoutf8(from_charset,inbuf1,inlen,outbuf,outlen);
-		columns.push_back(outbuf);
-		//columns.push_back(forceutf8(std::string((char *) dbcolumns + i, j - i)));
+		if(from_charset != NULL){
+			strcpy(inbuf1,std::string((char *) dbcolumns + i, j - i).c_str());
+			size_t inlen = strlen(inbuf1);
+			forcetoutf8(from_charset,inbuf1,inlen,outbuf,outlen);
+			columns.push_back(outbuf);
+		}
+		else{
+			columns.push_back(forceutf8(std::string((char *) dbcolumns + i, j - i)));
+		}
 		column_widths.push_back(dbcolumns[i + 16]);
 		column_types.push_back(dbcolumns[i + 11]);
 	}
@@ -333,11 +337,17 @@ void parse_shapefile(std::vector<struct serialization_state> &sst, std::string f
 			size_t dbp = 1;
 			for (size_t i = 0; i < columns.size(); i++) {
 				std::string ori = std::string((char *) (db + dbp),column_widths[i]);
-				//std::string orif = forceutf8(std::string((char *) (db + dbp), column_widths[i]));
-				strcpy(inbuf2,ori.c_str());
-				size_t inlen = strlen(inbuf2);
-				forcetoutf8(from_charset,inbuf2,inlen,outbuf,outlen);
-				std::string s = outbuf;
+				std::string s;
+				if(from_charset != NULL){
+					strcpy(inbuf2,ori.c_str());
+					size_t inlen = strlen(inbuf2);
+					forcetoutf8(from_charset,inbuf2,inlen,outbuf,outlen);
+					s = outbuf;
+				}
+				else{
+					s = forceutf8(std::string((char *) (db + dbp), column_widths[i]));
+				}
+
 				dbp += column_widths[i];
 				while (s.size() > 0 && s[s.size() - 1] == ' ') {
 					s.pop_back();

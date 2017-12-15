@@ -2193,7 +2193,6 @@ int main(int argc, char **argv) {
 #endif
 
 	init_cpus();
-	//shape_encoding = "";
 	extern int optind;
 	extern char *optarg;
 	int i;
