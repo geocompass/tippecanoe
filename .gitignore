@@ -35,6 +35,7 @@ tile-join
 tippecanoe-decode
 tippecanoe-enumerate
 unit
+tippecanoe-json-tool
 
 # Vim
 *.swp
