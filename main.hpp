@@ -30,7 +30,7 @@ extern size_t max_tile_size;
 extern size_t outlen;
 int mkstemp_cloexec(char *name);
 FILE *fopen_oflag(const char *name, const char *mode, int oflag);
-
+int process(int argc, char **argv);
 #define MAX_ZOOM 24
 
 #endif

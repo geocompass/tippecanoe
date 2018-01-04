@@ -1174,7 +1174,7 @@ int read_input(std::vector<source> &sources, char *fname, int maxzoom, int minzo
 
 			// Trim out characters that can't be part of selector
  			std::string out = trunc;
-/* 			for (size_t p = 0; p < trunc.size(); p++) {
+ 			/*for (size_t p = 0; p < trunc.size(); p++) {
 				if (isalpha(trunc[p]) || isdigit(trunc[p]) || trunc[p] == '_') {
 					out.append(trunc, p, 1);
 				}
@@ -2786,7 +2786,9 @@ int main(int argc, char **argv) {
 
 	return ret;
 }
-
+int process(int argc,char**argv){
+	main(argc,argv);
+}
 int mkstemp_cloexec(char *name) {
 	int fd = mkstemp(name);
 	if (fd >= 0) {
