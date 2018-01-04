@@ -51,6 +51,7 @@
 #include "main.hpp"
 #include "geojson.hpp"
 #include "geobuf.hpp"
+#include "shapefile.hpp"
 #include "geometry.hpp"
 #include "serial.hpp"
 #include "options.hpp"
@@ -67,7 +68,7 @@ int quiet_progress = 0;
 int geometry_scale = 0;
 double simplification = 1;
 size_t max_tile_size = 500000;
-
+size_t outlen = 512;
 int prevent[256];
 int additional[256];
 
@@ -80,6 +81,7 @@ size_t CPUS;
 size_t TEMP_FILES;
 long long MAX_FILES;
 static long long diskfree;
+char *shape_encoding = NULL;
 
 void checkdisk(std::vector<struct reader> *r) {
 	long long used = 0;
@@ -1139,7 +1141,7 @@ int read_input(std::vector<source> &sources, char *fname, int maxzoom, int minzo
 			}
 			std::string trunc = std::string(use);
 
-			// Trim .json or .mbtiles from the name
+			// Trim .json or .mbtiles or .shp from the name
 			while (true) {
 				ssize_t cp;
 				cp = trunc.find(".json");
@@ -1162,17 +1164,22 @@ int read_input(std::vector<source> &sources, char *fname, int maxzoom, int minzo
 					trunc = trunc.substr(0, cp);
 					continue;
 				}
+				cp = trunc.find(".shp");
+				if(cp >= 0 && (size_t)cp + 4 == trunc.size()){
+					trunc = trunc.substr(0,cp);
+					continue;
+				}
 				break;
 			}
 
 			// Trim out characters that can't be part of selector
-			std::string out;
-			for (size_t p = 0; p < trunc.size(); p++) {
+ 			std::string out = trunc;
+/* 			for (size_t p = 0; p < trunc.size(); p++) {
 				if (isalpha(trunc[p]) || isdigit(trunc[p]) || trunc[p] == '_') {
 					out.append(trunc, p, 1);
 				}
-			}
-			sources[l].layer = out;
+			} */
+			sources[l].layer = out; 
 
 			if (!quiet) {
 				fprintf(stderr, "For layer %d, using name \"%s\"\n", (int) l, out.c_str());
@@ -1284,6 +1291,52 @@ int read_input(std::vector<source> &sources, char *fname, int maxzoom, int minzo
 				perror("close");
 				exit(EXIT_FAILURE);
 			}
+
+			overall_offset = layer_seq[0];
+			checkdisk(&readers);
+			continue;
+		}
+
+		if (sources[source].file.size() > 4 && sources[source].file.substr(sources[source].file.size() - 4) == std::string(".shp")) {
+			long long layer_seq[CPUS];
+			double dist_sums[CPUS];
+			size_t dist_counts[CPUS];
+
+			std::vector<struct serialization_state> sst;
+			sst.resize(CPUS);
+
+			// XXX factor out this duplicated setup
+			for (size_t i = 0; i < CPUS; i++) {
+				layer_seq[i] = overall_offset;
+				dist_sums[i] = 0;
+				dist_counts[i] = 0;
+
+				sst[i].fname = reading.c_str();
+				sst[i].fencoding = shape_encoding;
+				sst[i].line = 0;
+				sst[i].layer_seq = &layer_seq[i];
+				sst[i].progress_seq = &progress_seq;
+				sst[i].readers = &readers;
+				sst[i].segment = i;
+				sst[i].initial_x = &initial_x[i];
+				sst[i].initial_y = &initial_y[i];
+				sst[i].initialized = &initialized[i];
+				sst[i].dist_sum = &dist_sums[i];
+				sst[i].dist_count = &dist_counts[i];
+				sst[i].want_dist = guess_maxzoom;
+				sst[i].maxzoom = maxzoom;
+				sst[i].filters = prefilter != NULL || postfilter != NULL;
+				sst[i].uses_gamma = uses_gamma;
+				sst[i].layermap = &layermaps[i];
+				sst[i].exclude = exclude;
+				sst[i].include = include;
+				sst[i].exclude_all = exclude_all;
+				sst[i].filter = filter;
+				sst[i].basezoom = basezoom;
+				sst[i].attribute_types = attribute_types;
+			}
+
+			parse_shapefile(sst, sources[source].file, layer, sources[layer].layer);
 
 			overall_offset = layer_seq[0];
 			checkdisk(&readers);
@@ -2140,7 +2193,6 @@ int main(int argc, char **argv) {
 #endif
 
 	init_cpus();
-
 	extern int optind;
 	extern char *optarg;
 	int i;
@@ -2288,6 +2340,8 @@ int main(int argc, char **argv) {
 		{"check-polygons", no_argument, &additional[A_DEBUG_POLYGON], 1},
 		{"no-polygon-splitting", no_argument, &prevent[P_POLYGON_SPLIT], 1},
 		{"prefer-radix-sort", no_argument, &additional[A_PREFER_RADIX_SORT], 1},
+
+		{"shape-encoding",required_argument,0,'E'},
 
 		{0, 0, 0, 0},
 	};
@@ -2565,6 +2619,9 @@ int main(int argc, char **argv) {
 
 		case 'T':
 			set_attribute_type(attribute_types, optarg);
+			break;
+		case 'E':
+			shape_encoding = optarg;
 			break;
 
 		default: {
