@@ -2187,7 +2187,7 @@ void set_attribute_type(std::map<std::string, int> &attribute_types, const char 
 	attribute_types.insert(std::pair<std::string, int>(name, t));
 }
 
-int main(int argc, char **argv) {
+int process(int argc, char **argv) {
 #ifdef MTRACE
 	mtrace();
 #endif
@@ -2786,9 +2786,7 @@ int main(int argc, char **argv) {
 
 	return ret;
 }
-int process(int argc,char**argv){
-	main(argc,argv);
-}
+
 int mkstemp_cloexec(char *name) {
 	int fd = mkstemp(name);
 	if (fd >= 0) {
