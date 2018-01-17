@@ -3,17 +3,19 @@
 
 #include <stddef.h>
 
-struct index {
+struct index
+{
 	long long start = 0;
 	long long end = 0;
 	unsigned long long ix = 0;
 	short segment = 0;
 	unsigned short t : 2;
-	unsigned long long seq : (64 - 18);  // pack with segment and t to stay in 32 bytes
+	unsigned long long seq : (64 - 18); // pack with segment and t to stay in 32 bytes
 
 	index()
-	    : t(0),
-	      seq(0) {
+		: t(0),
+		  seq(0)
+	{
 	}
 };
 
@@ -30,7 +32,7 @@ extern size_t max_tile_size;
 extern size_t outlen;
 int mkstemp_cloexec(char *name);
 FILE *fopen_oflag(const char *name, const char *mode, int oflag);
-int process(int argc, char **argv);
+// int process(int argc, char **argv);
 #define MAX_ZOOM 24
 
 #endif
